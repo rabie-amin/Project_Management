@@ -162,7 +162,7 @@ export function PhaseModal({ open, onClose, phase, projectId }: PhaseModalProps)
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">No assignee</SelectItem>
+                      <SelectItem value="none">No assignee</SelectItem>
                       {(users as any[]).map((user: any) => (
                         <SelectItem key={user.id} value={user.id}>
                           {user.name} ({user.username})

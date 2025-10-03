@@ -34,9 +34,9 @@ interface FilterState {
 export default function TimelinePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>({
-    status: "",
-    assignee: "",
-    project: "",
+    status: "all",
+    assignee: "all",
+    project: "all",
   });
   const [tooltip, setTooltip] = useState<{
     visible: boolean;
@@ -83,7 +83,7 @@ export default function TimelinePage() {
           (project.client && project.client.toLowerCase().includes(searchQuery.toLowerCase()));
 
         // Project filter
-        const matchesProject = filters.project === "" || project.id === filters.project;
+        const matchesProject = filters.project === "all" || project.id === filters.project;
 
         return matchesSearch && matchesProject;
       })
@@ -91,10 +91,10 @@ export default function TimelinePage() {
         ...project,
         phases: project.phases?.filter(phase => {
           // Status filter
-          const matchesStatus = filters.status === "" || phase.status === filters.status;
+          const matchesStatus = filters.status === "all" || phase.status === filters.status;
           
           // Assignee filter
-          const matchesAssignee = filters.assignee === "" || phase.assigneeId === filters.assignee;
+          const matchesAssignee = filters.assignee === "all" || phase.assigneeId === filters.assignee;
 
           return matchesStatus && matchesAssignee;
         }) || []
@@ -116,15 +116,15 @@ export default function TimelinePage() {
   };
 
   const clearFilter = (filterKey: keyof FilterState) => {
-    setFilters(prev => ({ ...prev, [filterKey]: "" }));
+    setFilters(prev => ({ ...prev, [filterKey]: "all" }));
   };
 
   const clearAllFilters = () => {
-    setFilters({ status: "", assignee: "", project: "" });
+    setFilters({ status: "all", assignee: "all", project: "all" });
     setSearchQuery("");
   };
 
-  const activeFiltersCount = Object.values(filters).filter(Boolean).length + (searchQuery ? 1 : 0);
+  const activeFiltersCount = Object.values(filters).filter(v => v !== "all").length + (searchQuery ? 1 : 0);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -196,7 +196,7 @@ export default function TimelinePage() {
                 <SelectValue placeholder="All Projects" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Projects</SelectItem>
+                <SelectItem value="all">All Projects</SelectItem>
                 {projects.map(project => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.name}
@@ -211,7 +211,7 @@ export default function TimelinePage() {
                 <SelectValue placeholder="All Statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Statuses</SelectItem>
+                <SelectItem value="all">All Statuses</SelectItem>
                 {uniqueStatuses.map(status => (
                   <SelectItem key={status} value={status}>
                     <div className="flex items-center space-x-2">
@@ -229,7 +229,7 @@ export default function TimelinePage() {
                 <SelectValue placeholder="All Assignees" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Assignees</SelectItem>
+                <SelectItem value="all">All Assignees</SelectItem>
                 {uniqueAssignees.map(assigneeId => {
                   const user = users.find((u: any) => u.id === assigneeId);
                   return user ? (
@@ -264,7 +264,7 @@ export default function TimelinePage() {
                 </Badge>
               )}
               
-              {filters.project && (
+              {filters.project !== "all" && (
                 <Badge variant="secondary" className="flex items-center space-x-1">
                   <span>Project: {projects.find(p => p.id === filters.project)?.name}</span>
                   <Button
@@ -278,7 +278,7 @@ export default function TimelinePage() {
                 </Badge>
               )}
               
-              {filters.status && (
+              {filters.status !== "all" && (
                 <Badge variant="secondary" className="flex items-center space-x-1">
                   <span>Status: {filters.status.replace('_', ' ')}</span>
                   <Button
@@ -292,7 +292,7 @@ export default function TimelinePage() {
                 </Badge>
               )}
               
-              {filters.assignee && (
+              {filters.assignee !== "all" && (
                 <Badge variant="secondary" className="flex items-center space-x-1">
                   <span>
                     Assignee: {users.find((u: any) => u.id === filters.assignee)?.name || 'Unknown'}
