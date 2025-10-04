@@ -284,7 +284,7 @@ export function Timeline({ projects, onPhaseHover, onPhaseLeave, onPhaseClick }:
       </div>
 
       {/* Timeline Canvas */}
-      <div ref={containerRef} className="timeline-container scrollbar-thin" style={{ height: "600px" }}>
+      <div ref={containerRef} className="timeline-container overflow-auto" style={{ height: "600px", width: "100%" }}>
         <svg ref={svgRef} className="timeline-canvas" />
       </div>
 
