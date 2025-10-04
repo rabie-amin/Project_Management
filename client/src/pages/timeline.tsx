@@ -57,7 +57,7 @@ export default function TimelinePage() {
   });
 
   // Extract unique assignees and statuses from all phases
-  const { uniqueAssignees, uniqueStatuses } = useMemo(() => {
+  const { uniqueAssignees, uniqueStatuses, projectOverlaps } = useMemo(() => {
     const assignees = new Set<string>();
     const statuses = new Set<string>();
     
@@ -70,9 +70,31 @@ export default function TimelinePage() {
       });
     });
 
+    // Detect project overlaps
+    const overlaps: Array<{project1: string, project2: string}> = [];
+    for (let i = 0; i < projects.length; i++) {
+      for (let j = i + 1; j < projects.length; j++) {
+        const p1 = projects[i];
+        const p2 = projects[j];
+        const p1Start = new Date(p1.startDate).getTime();
+        const p1End = new Date(p1.endDate).getTime();
+        const p2Start = new Date(p2.startDate).getTime();
+        const p2End = new Date(p2.endDate).getTime();
+        
+        // Check if date ranges overlap
+        if (p1Start <= p2End && p2Start <= p1End) {
+          overlaps.push({
+            project1: p1.name,
+            project2: p2.name,
+          });
+        }
+      }
+    }
+
     return {
       uniqueAssignees: Array.from(assignees),
       uniqueStatuses: Array.from(statuses),
+      projectOverlaps: overlaps,
     };
   }, [projects]);
 
@@ -171,8 +193,34 @@ export default function TimelinePage() {
             <Badge variant="outline" data-testid="phases-count">
               {filteredProjects.reduce((acc, p) => acc + p.phases.length, 0)} Phases
             </Badge>
+            {projectOverlaps.length > 0 && (
+              <Badge variant="destructive" data-testid="overlaps-count">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                {projectOverlaps.length} Overlaps
+              </Badge>
+            )}
           </div>
         </div>
+
+        {/* Overlap Warning */}
+        {projectOverlaps.length > 0 && (
+          <div className="mb-4 bg-destructive/10 border border-destructive/50 rounded-lg p-4" data-testid="overlap-warning">
+            <div className="flex items-start space-x-3">
+              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-destructive mb-2">Project Time Overlaps Detected</h3>
+                <div className="space-y-1 text-sm">
+                  {projectOverlaps.map((overlap, index) => (
+                    <div key={index} className="text-muted-foreground">
+                      • <span className="font-medium">{overlap.project1}</span> overlaps with{" "}
+                      <span className="font-medium">{overlap.project2}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Search and Filters */}
         <div className="space-y-4">
