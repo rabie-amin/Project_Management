@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -29,14 +29,17 @@ import { X, Plus } from "lucide-react";
 interface ProjectModalProps {
   open: boolean;
   onClose: () => void;
+  project?: any;
 }
 
 interface PhaseForm {
+  id?: string;
   name: string;
   assigneeId: string;
   startDate: string;
   endDate: string;
   notes: string;
+  status: string;
 }
 
 const phaseFormSchema = z.object({
@@ -45,52 +48,97 @@ const phaseFormSchema = z.object({
   startDate: z.string(),
   endDate: z.string(),
   notes: z.string(),
+  status: z.string(),
 });
 
 const projectFormSchema = insertProjectSchema.extend({
   phases: z.array(phaseFormSchema).optional(),
 });
 
-export function ProjectModal({ open, onClose }: ProjectModalProps) {
+export function ProjectModal({ open, onClose, project }: ProjectModalProps) {
   const [phases, setPhases] = useState<PhaseForm[]>([]);
+  const [deletedPhaseIds, setDeletedPhaseIds] = useState<string[]>([]);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const isEditing = !!project;
 
   const form = useForm<InsertProject & { phases?: PhaseForm[] }>({
     resolver: zodResolver(projectFormSchema),
     defaultValues: {
-      name: "",
-      client: "",
-      description: "",
-      startDate: new Date(),
-      endDate: new Date(),
-      status: "active",
+      name: project?.name || "",
+      client: project?.client || "",
+      description: project?.description || "",
+      startDate: project?.startDate ? new Date(project.startDate) : new Date(),
+      endDate: project?.endDate ? new Date(project.endDate) : new Date(),
+      status: project?.status || "active",
     },
   });
 
-  const createProjectMutation = useMutation({
-    mutationFn: async (data: { project: InsertProject, phases: PhaseForm[] }) => {
-      const projectResponse = await apiRequest("POST", "/api/projects", data.project);
-      const project = await projectResponse.json();
+  const saveProjectMutation = useMutation({
+    mutationFn: async (data: { project: InsertProject, phases: PhaseForm[], deletedPhaseIds?: string[] }) => {
+      let projectResult;
       
-      if (data.phases.length > 0) {
-        await Promise.all(
-          data.phases.map((phase, index) => 
-            apiRequest("POST", "/api/phases", {
-              projectId: project.id,
-              name: phase.name,
-              assigneeId: phase.assigneeId || null,
-              startDate: new Date(phase.startDate),
-              endDate: new Date(phase.endDate),
-              notes: phase.notes || null,
-              order: index,
-              status: 'pending',
+      if (isEditing && project) {
+        const projectResponse = await apiRequest("PATCH", `/api/projects/${project.id}`, data.project);
+        projectResult = await projectResponse.json();
+        
+        // Delete removed phases
+        if (data.deletedPhaseIds && data.deletedPhaseIds.length > 0) {
+          await Promise.all(
+            data.deletedPhaseIds.map(phaseId => 
+              apiRequest("DELETE", `/api/phases/${phaseId}`, {})
+            )
+          );
+        }
+        
+        // Update or create phases
+        if (data.phases.length > 0) {
+          await Promise.all(
+            data.phases.map((phase, index) => {
+              const phaseData = {
+                projectId: projectResult.id,
+                name: phase.name,
+                assigneeId: phase.assigneeId || null,
+                startDate: new Date(phase.startDate),
+                endDate: new Date(phase.endDate),
+                notes: phase.notes || null,
+                order: index,
+                status: phase.status || 'pending',
+              };
+              
+              // If phase has an ID, update it; otherwise create new
+              if (phase.id) {
+                return apiRequest("PATCH", `/api/phases/${phase.id}`, phaseData);
+              } else {
+                return apiRequest("POST", "/api/phases", phaseData);
+              }
             })
-          )
-        );
+          );
+        }
+      } else {
+        const projectResponse = await apiRequest("POST", "/api/projects", data.project);
+        projectResult = await projectResponse.json();
+        
+        // Create all phases for new project
+        if (data.phases.length > 0) {
+          await Promise.all(
+            data.phases.map((phase, index) => 
+              apiRequest("POST", "/api/phases", {
+                projectId: projectResult.id,
+                name: phase.name,
+                assigneeId: phase.assigneeId || null,
+                startDate: new Date(phase.startDate),
+                endDate: new Date(phase.endDate),
+                notes: phase.notes || null,
+                order: index,
+                status: 'pending',
+              })
+            )
+          );
+        }
       }
       
-      return project;
+      return projectResult;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -98,7 +146,7 @@ export function ProjectModal({ open, onClose }: ProjectModalProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({
         title: "Success",
-        description: "Project created successfully",
+        description: isEditing ? "Project updated successfully" : "Project created successfully",
       });
       onClose();
       form.reset();
@@ -107,16 +155,16 @@ export function ProjectModal({ open, onClose }: ProjectModalProps) {
     onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to create project",
+        description: isEditing ? "Failed to update project" : "Failed to create project",
         variant: "destructive",
       });
-      console.error("Create project error:", error);
+      console.error("Save project error:", error);
     },
   });
 
   const onSubmit = (data: InsertProject & { phases?: PhaseForm[] }) => {
     const { phases: _, ...projectData } = data;
-    createProjectMutation.mutate({ project: projectData, phases });
+    saveProjectMutation.mutate({ project: projectData, phases, deletedPhaseIds });
   };
 
   const addPhase = () => {
@@ -126,10 +174,16 @@ export function ProjectModal({ open, onClose }: ProjectModalProps) {
       startDate: format(new Date(), "yyyy-MM-dd"),
       endDate: format(new Date(), "yyyy-MM-dd"),
       notes: "",
+      status: "pending",
     }]);
   };
 
   const removePhase = (index: number) => {
+    const phaseToRemove = phases[index];
+    // If the phase has an ID, track it for deletion
+    if (phaseToRemove.id) {
+      setDeletedPhaseIds([...deletedPhaseIds, phaseToRemove.id]);
+    }
     setPhases(phases.filter((_, i) => i !== index));
   };
 
@@ -139,12 +193,52 @@ export function ProjectModal({ open, onClose }: ProjectModalProps) {
     setPhases(updated);
   };
 
+  useEffect(() => {
+    if (project) {
+      form.reset({
+        name: project.name || "",
+        client: project.client || "",
+        description: project.description || "",
+        startDate: project.startDate ? new Date(project.startDate) : new Date(),
+        endDate: project.endDate ? new Date(project.endDate) : new Date(),
+        status: project.status || "active",
+      });
+      
+      if (project.phases && project.phases.length > 0) {
+        const existingPhases = project.phases.map((phase: any) => ({
+          id: phase.id,
+          name: phase.name || "",
+          assigneeId: phase.assigneeId || "",
+          startDate: phase.startDate ? format(new Date(phase.startDate), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
+          endDate: phase.endDate ? format(new Date(phase.endDate), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
+          notes: phase.notes || "",
+          status: phase.status || "pending",
+        }));
+        setPhases(existingPhases);
+      } else {
+        setPhases([]);
+      }
+      setDeletedPhaseIds([]);
+    } else {
+      form.reset({
+        name: "",
+        client: "",
+        description: "",
+        startDate: new Date(),
+        endDate: new Date(),
+        status: "active",
+      });
+      setPhases([]);
+      setDeletedPhaseIds([]);
+    }
+  }, [project, form]);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="project-modal">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            Create New Project
+            {isEditing ? "Edit Project" : "Create New Project"}
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
@@ -351,10 +445,13 @@ export function ProjectModal({ open, onClose }: ProjectModalProps) {
               </Button>
               <Button
                 type="submit"
-                disabled={createProjectMutation.isPending}
+                disabled={saveProjectMutation.isPending}
                 data-testid="button-submit-project"
               >
-                {createProjectMutation.isPending ? "Creating..." : "Create Project"}
+                {saveProjectMutation.isPending 
+                  ? (isEditing ? "Updating..." : "Creating...") 
+                  : (isEditing ? "Update Project" : "Create Project")
+                }
               </Button>
             </div>
           </form>
