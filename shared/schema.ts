@@ -75,13 +75,19 @@ export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
 });
 
-export const insertProjectSchema = createInsertSchema(projects).omit({
+export const insertProjectSchema = createInsertSchema(projects, {
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertPhaseSchema = createInsertSchema(phases).omit({
+export const insertPhaseSchema = createInsertSchema(phases, {
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

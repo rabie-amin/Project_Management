@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { insertProjectSchema, type InsertProject } from "@shared/schema";
 import { format } from "date-fns";
+import { z } from "zod";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +39,17 @@ interface PhaseForm {
   notes: string;
 }
 
-const projectFormSchema = insertProjectSchema;
+const phaseFormSchema = z.object({
+  name: z.string(),
+  assigneeId: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  notes: z.string(),
+});
+
+const projectFormSchema = insertProjectSchema.extend({
+  phases: z.array(phaseFormSchema).optional(),
+});
 
 export function ProjectModal({ open, onClose }: ProjectModalProps) {
   const [phases, setPhases] = useState<PhaseForm[]>([]);
