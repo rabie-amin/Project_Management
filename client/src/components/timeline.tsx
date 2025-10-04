@@ -41,13 +41,14 @@ export function Timeline({ projects, onPhaseHover, onPhaseLeave, onPhaseClick }:
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
 
   useEffect(() => {
-    if (!svgRef.current || !projects.length) return;
+    if (!svgRef.current || !containerRef.current || !projects.length) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
     const margin = { top: 60, right: 20, bottom: 40, left: 200 };
-    const width = 1200 * zoomLevel;
+    const containerWidth = containerRef.current.clientWidth;
+    const width = Math.max(containerWidth, 1200) * zoomLevel;
     const height = projects.length * 80 + margin.top + margin.bottom;
 
     svg.attr("width", width).attr("height", height);
@@ -99,12 +100,12 @@ export function Timeline({ projects, onPhaseHover, onPhaseLeave, onPhaseClick }:
       .enter()
       .append("text")
       .attr("class", "time-label")
-      .attr("x", d => xScale(d))
+      .attr("x", (d: Date) => xScale(d))
       .attr("y", -20)
       .attr("text-anchor", "middle")
       .attr("font-size", "12px")
       .attr("fill", "hsl(var(--muted-foreground))")
-      .text(d => format(d, formatString));
+      .text((d: Date) => format(d, formatString));
 
     // Grid lines
     g.selectAll(".grid-line")
@@ -112,8 +113,8 @@ export function Timeline({ projects, onPhaseHover, onPhaseLeave, onPhaseClick }:
       .enter()
       .append("line")
       .attr("class", "grid-line")
-      .attr("x1", d => xScale(d))
-      .attr("x2", d => xScale(d))
+      .attr("x1", (d: Date) => xScale(d))
+      .attr("x2", (d: Date) => xScale(d))
       .attr("y1", 0)
       .attr("y2", projects.length * 80)
       .attr("stroke", "hsl(var(--border))")
@@ -187,7 +188,7 @@ export function Timeline({ projects, onPhaseHover, onPhaseLeave, onPhaseClick }:
 
         // Event handlers
         phaseGroup
-          .on("mouseenter", function(event) {
+          .on("mouseenter", function(this: SVGGElement, event: any) {
             d3.select(this).select("rect")
               .transition()
               .duration(200)
@@ -196,7 +197,7 @@ export function Timeline({ projects, onPhaseHover, onPhaseLeave, onPhaseClick }:
             
             onPhaseHover?.(phase, event as MouseEvent);
           })
-          .on("mouseleave", function() {
+          .on("mouseleave", function(this: SVGGElement) {
             d3.select(this).select("rect")
               .transition()
               .duration(200)
@@ -209,7 +210,7 @@ export function Timeline({ projects, onPhaseHover, onPhaseLeave, onPhaseClick }:
       });
     });
 
-  }, [projects, zoomLevel, viewMode]);
+  }, [projects, zoomLevel, viewMode, onPhaseHover, onPhaseLeave, onPhaseClick]);
 
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev * 1.2, 3));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(prev / 1.2, 0.5));
@@ -284,7 +285,7 @@ export function Timeline({ projects, onPhaseHover, onPhaseLeave, onPhaseClick }:
       </div>
 
       {/* Timeline Canvas */}
-      <div ref={containerRef} className="timeline-container overflow-auto" style={{ height: "600px", width: "100%" }}>
+      <div ref={containerRef} className="timeline-container overflow-auto bg-background" style={{ height: "auto", minHeight: "600px", maxHeight: "calc(100vh - 300px)", width: "100%" }}>
         <svg ref={svgRef} className="timeline-canvas" />
       </div>
 
