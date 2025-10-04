@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
-import { format, startOfMonth, endOfMonth, eachMonthOfInterval, addMonths } from "date-fns";
+import { 
+  format, 
+  startOfMonth, 
+  endOfMonth, 
+  eachMonthOfInterval, 
+  addMonths,
+  startOfWeek,
+  endOfWeek,
+  eachWeekOfInterval,
+  addWeeks,
+  startOfDay,
+  endOfDay,
+  eachDayOfInterval,
+  addDays
+} from "date-fns";
 import { type ProjectWithPhases } from "@shared/schema";
 import { ZoomIn, ZoomOut, Maximize } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,9 +63,25 @@ export function Timeline({ projects, onPhaseHover, onPhaseLeave, onPhaseClick }:
     const minDate = d3.min(allDates) || new Date();
     const maxDate = d3.max(allDates) || new Date();
     
-    // Add padding to date range
-    const startDate = startOfMonth(addMonths(minDate, -1));
-    const endDate = endOfMonth(addMonths(maxDate, 1));
+    // Add padding to date range based on view mode
+    let startDate: Date, endDate: Date, timeIntervals: Date[], formatString: string;
+    
+    if (viewMode === 'day') {
+      startDate = startOfDay(addDays(minDate, -7));
+      endDate = endOfDay(addDays(maxDate, 7));
+      timeIntervals = eachDayOfInterval({ start: startDate, end: endDate });
+      formatString = "MMM dd";
+    } else if (viewMode === 'week') {
+      startDate = startOfWeek(addWeeks(minDate, -2));
+      endDate = endOfWeek(addWeeks(maxDate, 2));
+      timeIntervals = eachWeekOfInterval({ start: startDate, end: endDate });
+      formatString = "MMM dd";
+    } else {
+      startDate = startOfMonth(addMonths(minDate, -1));
+      endDate = endOfMonth(addMonths(maxDate, 1));
+      timeIntervals = eachMonthOfInterval({ start: startDate, end: endDate });
+      formatString = "MMM";
+    }
 
     // Create scales
     const xScale = d3.scaleTime()
@@ -63,25 +93,22 @@ export function Timeline({ projects, onPhaseHover, onPhaseLeave, onPhaseClick }:
       .range([0, projects.length * 80])
       .padding(0.2);
 
-    // Create time axis
-    const months = eachMonthOfInterval({ start: startDate, end: endDate });
-    
-    // Month labels
-    g.selectAll(".month-label")
-      .data(months)
+    // Create time axis labels
+    g.selectAll(".time-label")
+      .data(timeIntervals)
       .enter()
       .append("text")
-      .attr("class", "month-label")
+      .attr("class", "time-label")
       .attr("x", d => xScale(d))
       .attr("y", -20)
       .attr("text-anchor", "middle")
       .attr("font-size", "12px")
       .attr("fill", "hsl(var(--muted-foreground))")
-      .text(d => format(d, "MMM"));
+      .text(d => format(d, formatString));
 
     // Grid lines
     g.selectAll(".grid-line")
-      .data(months)
+      .data(timeIntervals)
       .enter()
       .append("line")
       .attr("class", "grid-line")
