@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Timeline } from "@/components/timeline";
+import { PhaseStatusModal } from "@/components/phase-status-modal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,7 @@ import {
   X
 } from "lucide-react";
 import { format } from "date-fns";
-import { type ProjectWithPhases } from "@shared/schema";
+import { type ProjectWithPhases, type Phase } from "@shared/schema";
 
 interface FilterState {
   status: string;
@@ -44,6 +45,8 @@ export default function TimelinePage() {
     y: number;
     content: any;
   }>({ visible: false, x: 0, y: 0, content: null });
+  const [selectedPhase, setSelectedPhase] = useState<Phase | null>(null);
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
 
   const { data: projects = [], isLoading: projectsLoading } = useQuery<ProjectWithPhases[]>({
     queryKey: ["/api/projects"],
@@ -112,6 +115,12 @@ export default function TimelinePage() {
   };
 
   const handlePhaseLeave = () => {
+    setTooltip(prev => ({ ...prev, visible: false }));
+  };
+
+  const handlePhaseClick = (phase: any) => {
+    setSelectedPhase(phase);
+    setStatusModalOpen(true);
     setTooltip(prev => ({ ...prev, visible: false }));
   };
 
@@ -332,6 +341,7 @@ export default function TimelinePage() {
             projects={filteredProjects}
             onPhaseHover={handlePhaseHover}
             onPhaseLeave={handlePhaseLeave}
+            onPhaseClick={handlePhaseClick}
           />
         )}
       </div>
@@ -372,6 +382,13 @@ export default function TimelinePage() {
           </div>
         </div>
       )}
+
+      {/* Phase Status Modal */}
+      <PhaseStatusModal
+        open={statusModalOpen}
+        onClose={() => setStatusModalOpen(false)}
+        phase={selectedPhase}
+      />
     </main>
   );
 }
