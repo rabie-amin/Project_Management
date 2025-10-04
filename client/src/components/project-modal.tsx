@@ -58,9 +58,28 @@ export function ProjectModal({ open, onClose }: ProjectModalProps) {
   });
 
   const createProjectMutation = useMutation({
-    mutationFn: async (data: InsertProject) => {
-      const response = await apiRequest("POST", "/api/projects", data);
-      return response.json();
+    mutationFn: async (data: { project: InsertProject, phases: PhaseForm[] }) => {
+      const projectResponse = await apiRequest("POST", "/api/projects", data.project);
+      const project = await projectResponse.json();
+      
+      if (data.phases.length > 0) {
+        await Promise.all(
+          data.phases.map((phase, index) => 
+            apiRequest("POST", "/api/phases", {
+              projectId: project.id,
+              name: phase.name,
+              assigneeId: phase.assigneeId || null,
+              startDate: new Date(phase.startDate),
+              endDate: new Date(phase.endDate),
+              notes: phase.notes || null,
+              order: index,
+              status: 'pending',
+            })
+          )
+        );
+      }
+      
+      return project;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -85,7 +104,8 @@ export function ProjectModal({ open, onClose }: ProjectModalProps) {
   });
 
   const onSubmit = (data: InsertProject & { phases?: PhaseForm[] }) => {
-    createProjectMutation.mutate(data);
+    const { phases: _, ...projectData } = data;
+    createProjectMutation.mutate({ project: projectData, phases });
   };
 
   const addPhase = () => {
