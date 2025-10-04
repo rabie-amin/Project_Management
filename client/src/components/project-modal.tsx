@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { insertProjectSchema, type InsertProject } from "@shared/schema";
+import { insertProjectSchema, type InsertProject, type User } from "@shared/schema";
 import { format } from "date-fns";
 import { z } from "zod";
 import {
@@ -23,6 +23,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { X, Plus } from "lucide-react";
 
@@ -62,6 +69,10 @@ export function ProjectModal({ open, onClose, project }: ProjectModalProps) {
   const queryClient = useQueryClient();
   const isEditing = !!project;
 
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
   const form = useForm<InsertProject & { phases?: PhaseForm[] }>({
     resolver: zodResolver(projectFormSchema),
     defaultValues: {
@@ -76,7 +87,7 @@ export function ProjectModal({ open, onClose, project }: ProjectModalProps) {
 
   const saveProjectMutation = useMutation({
     mutationFn: async (data: { project: InsertProject, phases: PhaseForm[], deletedPhaseIds?: string[] }) => {
-      let projectResult;
+      let projectResult: any;
       
       if (isEditing && project) {
         const projectResponse = await apiRequest("PATCH", `/api/projects/${project.id}`, data.project);
@@ -98,7 +109,7 @@ export function ProjectModal({ open, onClose, project }: ProjectModalProps) {
               const phaseData = {
                 projectId: projectResult.id,
                 name: phase.name,
-                assigneeId: phase.assigneeId || null,
+                assigneeId: phase.assigneeId && phase.assigneeId.trim() !== '' ? phase.assigneeId : null,
                 startDate: new Date(phase.startDate),
                 endDate: new Date(phase.endDate),
                 notes: phase.notes || null,
@@ -126,7 +137,7 @@ export function ProjectModal({ open, onClose, project }: ProjectModalProps) {
               apiRequest("POST", "/api/phases", {
                 projectId: projectResult.id,
                 name: phase.name,
-                assigneeId: phase.assigneeId || null,
+                assigneeId: phase.assigneeId && phase.assigneeId.trim() !== '' ? phase.assigneeId : null,
                 startDate: new Date(phase.startDate),
                 endDate: new Date(phase.endDate),
                 notes: phase.notes || null,
@@ -390,13 +401,23 @@ export function ProjectModal({ open, onClose, project }: ProjectModalProps) {
                       </div>
                       
                       <div>
-                        <FormLabel className="text-xs">Assignee ID</FormLabel>
-                        <Input
-                          placeholder="Enter assignee ID"
+                        <FormLabel className="text-xs">Assignee</FormLabel>
+                        <Select
                           value={phase.assigneeId}
-                          onChange={(e) => updatePhase(index, 'assigneeId', e.target.value)}
-                          data-testid={`input-phase-assignee-${index}`}
-                        />
+                          onValueChange={(value) => updatePhase(index, 'assigneeId', value)}
+                        >
+                          <SelectTrigger data-testid={`input-phase-assignee-${index}`}>
+                            <SelectValue placeholder="Select assignee (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">None</SelectItem>
+                            {users.map((user) => (
+                              <SelectItem key={user.id} value={user.id}>
+                                {user.name} ({user.username})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       
                       <div>
