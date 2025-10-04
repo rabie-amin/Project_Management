@@ -403,14 +403,14 @@ export function ProjectModal({ open, onClose, project }: ProjectModalProps) {
                       <div>
                         <FormLabel className="text-xs">Assignee</FormLabel>
                         <Select
-                          value={phase.assigneeId}
-                          onValueChange={(value) => updatePhase(index, 'assigneeId', value)}
+                          value={phase.assigneeId || "unassigned"}
+                          onValueChange={(value) => updatePhase(index, 'assigneeId', value === "unassigned" ? "" : value)}
                         >
                           <SelectTrigger data-testid={`input-phase-assignee-${index}`}>
                             <SelectValue placeholder="Select assignee (optional)" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None</SelectItem>
+                            <SelectItem value="unassigned">None</SelectItem>
                             {users.map((user) => (
                               <SelectItem key={user.id} value={user.id}>
                                 {user.name} ({user.username})
