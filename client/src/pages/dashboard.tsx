@@ -37,15 +37,15 @@ export default function Dashboard() {
   
   const { theme, setTheme } = useTheme();
 
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+  const { data: projects = [], isLoading: projectsLoading } = useQuery<any[]>({
     queryKey: ["/api/projects"],
   });
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery<any>({
     queryKey: ["/api/stats"],
   });
 
-  const { data: timelineData = [], isLoading: timelineLoading } = useQuery({
+  const { data: timelineData = [], isLoading: timelineLoading } = useQuery<any[]>({
     queryKey: ["/api/timeline"],
   });
 
